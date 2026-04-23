@@ -33,7 +33,7 @@ if ( file_exists( MINUTEREAD_PATH . 'admin/class-minuteread-admin.php' ) ) {
 }
 
 add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), function ( $links ) {
-	$settings_link = '<a href="options-general.php?page=minuteread-settings">' . esc_html__( 'Settings', 'minuteread' ) . '</a>';
+	$settings_link = '<a href="' . esc_url( admin_url( 'options-general.php?page=minuteread-settings' ) ) . '">' . esc_html__( 'Settings', 'minuteread' ) . '</a>';
 	array_unshift( $links, $settings_link );
 	return $links;
 } );
