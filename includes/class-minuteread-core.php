@@ -12,6 +12,7 @@ class MinuteRead_Core {
 	/**
 	 * Calculate reading time for given content.
 	 *
+	 * @since  1.0.0
 	 * @param  string $content Post content.
 	 * @return int    Reading time in minutes (minimum 1).
 	 */

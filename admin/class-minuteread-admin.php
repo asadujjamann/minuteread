@@ -16,6 +16,8 @@ class MinuteRead_Admin {
 
 	/**
 	 * Register all settings with sanitization callbacks.
+	 *
+	 * @since 1.0.0
 	 */
 	public function settings() {
 		register_setting( 'minuteread_group', 'minuteread_enable',   array( $this, 'sanitize_enable' ) );
@@ -29,6 +31,7 @@ class MinuteRead_Admin {
 	 * Sanitize the enable/disable checkbox.
 	 * Unchecked checkbox sends nothing — treat as 0.
 	 *
+	 * @since  1.0.0
 	 * @param  mixed $value Raw input.
 	 * @return int   1 or 0.
 	 */
@@ -39,6 +42,7 @@ class MinuteRead_Admin {
 	/**
 	 * Sanitize words-per-minute (50–1000).
 	 *
+	 * @since  1.0.0
 	 * @param  mixed $value Raw input.
 	 * @return int
 	 */
@@ -58,6 +62,7 @@ class MinuteRead_Admin {
 	/**
 	 * Sanitize the label field — plain text only, no HTML.
 	 *
+	 * @since  1.0.0
 	 * @param  mixed $value Raw input.
 	 * @return string
 	 */
@@ -67,8 +72,14 @@ class MinuteRead_Admin {
 	}
 
 	/**
-	 * Sanitize the format field — must contain %d, max 30 chars.
+	 * Sanitize the format field.
 	 *
+	 * Rules:
+	 * - Must contain %d as the time placeholder.
+	 * - Only %d and %% (escaped percent) are allowed — no %s, %f, %x, etc.
+	 * - Maximum 30 characters.
+	 *
+	 * @since  1.0.0
 	 * @param  mixed $value Raw input.
 	 * @return string
 	 */
@@ -79,11 +90,28 @@ class MinuteRead_Admin {
 			return '%d min';
 		}
 
+		// After removing %% (escaped literal percent), count remaining % signs.
+		// All of them must be the start of %d — nothing else is permitted.
+		$stripped = str_replace( '%%', '', $value );
+		$total_percent = substr_count( $stripped, '%' );
+		$total_d       = substr_count( $stripped, '%d' );
+
+		if ( $total_percent !== $total_d ) {
+			add_settings_error(
+				'minuteread_format',
+				'minuteread_format_specifier',
+				/* translators: %d is a literal PHP format specifier, not a number — keep it as-is in translation. */
+				esc_html__( 'Only %d is allowed as a format specifier. Value reset to default.', 'minuteread' )
+			);
+			return '%d min';
+		}
+
 		if ( false === strpos( $value, '%d' ) ) {
 			add_settings_error(
 				'minuteread_format',
 				'minuteread_format_invalid',
-				sprintf( esc_html__( 'Format must contain %%d as the time placeholder. Example: %%d min. Value reset to default.', 'minuteread' ) )
+				/* translators: %d is a literal PHP format specifier, not a number — keep it as-is in translation. */
+				esc_html__( 'Format must contain %d as the time placeholder. Value reset to default.', 'minuteread' )
 			);
 			return '%d min';
 		}
@@ -98,6 +126,7 @@ class MinuteRead_Admin {
 	/**
 	 * Sanitize position — only 'before' or 'after' allowed.
 	 *
+	 * @since  1.0.0
 	 * @param  mixed $value Raw input.
 	 * @return string
 	 */
@@ -107,6 +136,8 @@ class MinuteRead_Admin {
 
 	/**
 	 * Register the settings page under Settings menu.
+	 *
+	 * @since 1.0.0
 	 */
 	public function menu() {
 		add_options_page(
@@ -120,6 +151,8 @@ class MinuteRead_Admin {
 
 	/**
 	 * Render the settings page HTML.
+	 *
+	 * @since 1.0.0
 	 */
 	public function settings_page() {
 		if ( ! current_user_can( 'manage_options' ) ) {
@@ -214,7 +247,14 @@ class MinuteRead_Admin {
 								class="regular-text"
 							>
 							<p class="description">
-								<?php printf( esc_html__( 'Use %%d as the time placeholder. Example: %%d min — or — %%d minutes. Leave empty for default.', 'minuteread' ) ); ?>
+								<?php
+									/* translators: %d is a literal format token shown to the user as-is — do not translate %d. */
+									esc_html_e( 'Use %d as a placeholder for the reading time number. Leave empty for default.', 'minuteread' );
+								?>
+								<br>
+								<code>%d min</code> &rarr; 5 min &nbsp;|&nbsp;
+								<code>%d mins</code> &rarr; 5 mins &nbsp;|&nbsp;
+								<code>%d minutes</code> &rarr; 5 minutes
 							</p>
 						</td>
 					</tr>
@@ -263,4 +303,3 @@ class MinuteRead_Admin {
 		<?php
 	}
 }
-

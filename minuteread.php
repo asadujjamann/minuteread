@@ -22,21 +22,23 @@ define( 'MINUTEREAD_VERSION', '1.0.0' );
 define( 'MINUTEREAD_PATH', plugin_dir_path( __FILE__ ) );
 define( 'MINUTEREAD_URL', plugin_dir_url( __FILE__ ) );
 
-if ( file_exists( MINUTEREAD_PATH . 'includes/class-minuteread-core.php' ) ) {
-	require_once MINUTEREAD_PATH . 'includes/class-minuteread-core.php';
-}
-if ( file_exists( MINUTEREAD_PATH . 'public/class-minuteread-frontend.php' ) ) {
-	require_once MINUTEREAD_PATH . 'public/class-minuteread-frontend.php';
-}
-if ( file_exists( MINUTEREAD_PATH . 'admin/class-minuteread-admin.php' ) ) {
-	require_once MINUTEREAD_PATH . 'admin/class-minuteread-admin.php';
-}
+require_once MINUTEREAD_PATH . 'includes/class-minuteread-core.php';
+require_once MINUTEREAD_PATH . 'public/class-minuteread-frontend.php';
+require_once MINUTEREAD_PATH . 'admin/class-minuteread-admin.php';
 
-add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), function ( $links ) {
-	$settings_link = '<a href="' . esc_url( admin_url( 'options-general.php?page=minuteread-settings' ) ) . '">' . esc_html__( 'Settings', 'minuteread' ) . '</a>';
+/**
+ * Add Settings link to plugin action links.
+ *
+ * @param  array $links Existing action links.
+ * @return array Modified action links.
+ */
+function minuteread_action_links( $links ) {
+	$settings_link = '<a href="' . esc_url( admin_url( 'options-general.php?page=minuteread-settings' ) ) . '">'
+		. esc_html__( 'Settings', 'minuteread' ) . '</a>';
 	array_unshift( $links, $settings_link );
 	return $links;
-} );
+}
+add_filter( 'plugin_action_links_' . plugin_basename( __FILE__ ), 'minuteread_action_links' );
 
 /**
  * Bootstrap the plugin on plugins_loaded.

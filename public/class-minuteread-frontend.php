@@ -19,6 +19,8 @@ class MinuteRead_Frontend {
 	 * Enqueue frontend stylesheet only where reading time will be shown:
 	 * - Single posts (automatic output via the_content filter), OR
 	 * - Any singular page/CPT that contains the [minuteread_time] shortcode.
+	 *
+	 * @since 1.0.0
 	 */
 	public function enqueue_scripts() {
 		if ( ! is_singular() ) {
@@ -40,6 +42,8 @@ class MinuteRead_Frontend {
 
 	/**
 	 * Register and enqueue the frontend stylesheet.
+	 *
+	 * @since 1.0.0
 	 */
 	private function enqueue_style() {
 		wp_enqueue_style(
@@ -54,6 +58,7 @@ class MinuteRead_Frontend {
 	 * Build the reading time HTML string.
 	 * Reused by both the_content filter and the shortcode.
 	 *
+	 * @since  1.0.0
 	 * @param  int    $time    Reading time in minutes.
 	 * @param  string $wrapper 'p' for block context, 'span' for inline.
 	 * @return string Escaped HTML.
@@ -71,10 +76,12 @@ class MinuteRead_Frontend {
 		}
 
 		// Format string — %d is replaced with the minute count.
+		// Use __() (not esc_html__()) so sprintf() receives the raw string;
+		// esc_html() is applied to the final sprintf() result instead.
 		$format = get_option( 'minuteread_format', '' );
 		if ( '' === $format ) {
 			/* translators: %d = number of minutes. Example output: "5 min". */
-			$format = esc_html__( '%d min', 'minuteread' );
+			$format = __( '%d min', 'minuteread' );
 		}
 
 		$time_text = esc_html( sprintf( $format, absint( $time ) ) );
@@ -89,6 +96,7 @@ class MinuteRead_Frontend {
 		/**
 		 * Filter the final reading time HTML.
 		 *
+		 * @since 1.0.0
 		 * @param string $output  The HTML string.
 		 * @param int    $time    Reading time in minutes.
 		 * @param string $wrapper HTML wrapper tag used.
@@ -99,6 +107,7 @@ class MinuteRead_Frontend {
 	/**
 	 * Prepend or append reading time to single post content.
 	 *
+	 * @since  1.0.0
 	 * @param  string $content Post content.
 	 * @return string Modified content.
 	 */
@@ -125,6 +134,7 @@ class MinuteRead_Frontend {
 	/**
 	 * Shortcode handler — [minuteread_time]
 	 *
+	 * @since  1.0.0
 	 * @return string HTML output.
 	 */
 	public function reading_time_shortcode() {
