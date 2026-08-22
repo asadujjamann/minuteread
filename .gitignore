@@ -2,3 +2,7 @@ node_modules/
 vendor/
 .DS_Store
 *.log
+*.zip
+.svn/
+.idea/
+.vscode/

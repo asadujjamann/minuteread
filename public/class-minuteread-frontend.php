@@ -12,47 +12,34 @@ class MinuteRead_Frontend {
 	public function __construct() {
 		add_filter( 'the_content', array( $this, 'append_reading_time' ) );
 		add_shortcode( 'minuteread_time', array( $this, 'reading_time_shortcode' ) );
-		add_action( 'wp_enqueue_scripts', array( $this, 'enqueue_scripts' ) );
+		add_action( 'wp_enqueue_scripts', array( $this, 'register_style' ) );
 	}
 
 	/**
-	 * Enqueue frontend stylesheet only where reading time will be shown:
-	 * - Single posts (automatic output via the_content filter), OR
-	 * - Any singular page/CPT that contains the [minuteread_time] shortcode.
+	 * Register the frontend stylesheet, and enqueue it up front on views where
+	 * the automatic output will run so the CSS lands in the document head.
+	 *
+	 * Anywhere else - shortcode in a widget, a template, a block - the style is
+	 * enqueued on demand from build_output().
 	 *
 	 * @since 1.0.0
+	 * @since 1.1.0 Registers first; enqueues on demand.
 	 */
-	public function enqueue_scripts() {
-		if ( ! is_singular() ) {
-			return;
-		}
-
-		// Always load on single posts — automatic output is shown here.
-		if ( is_singular( 'post' ) ) {
-			$this->enqueue_style();
-			return;
-		}
-
-		// For pages and CPTs, only load if the shortcode is present.
-		$post = get_post();
-		if ( $post && has_shortcode( $post->post_content, 'minuteread_time' ) ) {
-			$this->enqueue_style();
-		}
-	}
-
-	/**
-	 * Register and enqueue the frontend stylesheet.
-	 *
-	 * @since 1.0.0
-	 */
-	private function enqueue_style() {
-		wp_enqueue_style(
+	public function register_style() {
+		wp_register_style(
 			'minuteread-style',
 			MINUTEREAD_URL . 'assets/css/minuteread-frontend.css',
 			array(),
 			MINUTEREAD_VERSION
 		);
+
+		$types = minuteread_get_enabled_post_types();
+
+		if ( ! empty( $types ) && is_singular( $types ) && get_option( 'minuteread_enable', 1 ) ) {
+			wp_enqueue_style( 'minuteread-style' );
+		}
 	}
+
 
 	/**
 	 * Build the reading time HTML string.
@@ -66,6 +53,9 @@ class MinuteRead_Frontend {
 	private function build_output( $time, $wrapper = 'p' ) {
 		$wrapper = in_array( $wrapper, array( 'p', 'span' ), true ) ? $wrapper : 'p';
 
+		// Load the stylesheet wherever the output actually appears.
+		wp_enqueue_style( 'minuteread-style' );
+
 		// Label from settings; translatable default as fallback.
 		$label = get_option( 'minuteread_label', '' );
 		if ( '' === $label ) {
@@ -75,7 +65,7 @@ class MinuteRead_Frontend {
 			$label = esc_html( $label );
 		}
 
-		// Format string — %d is replaced with the minute count.
+		// Format string - %d is replaced with the minute count.
 		// Use __() (not esc_html__()) so sprintf() receives the raw string;
 		// esc_html() is applied to the final sprintf() result instead.
 		$format = get_option( 'minuteread_format', '' );
@@ -101,7 +91,7 @@ class MinuteRead_Frontend {
 		 * @param int    $time    Reading time in minutes.
 		 * @param string $wrapper HTML wrapper tag used.
 		 */
-		return apply_filters( 'minuteread_output_html', $output, $time, $wrapper );
+		return wp_kses_post( apply_filters( 'minuteread_output_html', $output, $time, $wrapper ) );
 	}
 
 	/**
@@ -112,7 +102,9 @@ class MinuteRead_Frontend {
 	 * @return string Modified content.
 	 */
 	public function append_reading_time( $content ) {
-		if ( ! is_singular( 'post' ) || ! in_the_loop() || ! is_main_query() || is_feed() || wp_doing_ajax() || is_admin() ) {
+		
+		$types = minuteread_get_enabled_post_types();
+		if ( empty( $types ) || ! is_singular( $types ) || ! in_the_loop() || ! is_main_query() || is_feed() || wp_doing_ajax() || is_admin() ) {
 			return $content;
 		}
 
@@ -132,17 +124,29 @@ class MinuteRead_Frontend {
 	}
 
 	/**
-	 * Shortcode handler — [minuteread_time]
+	 * Shortcode handler - [minuteread_time] or [minuteread_time id="123"]
 	 *
 	 * @since  1.0.0
+	 * @since  1.1.0 Accepts an "id" attribute so the shortcode can be used
+	 *               outside the loop, e.g. in a template or a widget.
+	 * @param  array|string $atts Shortcode attributes.
 	 * @return string HTML output.
 	 */
-	public function reading_time_shortcode() {
+	public function reading_time_shortcode( $atts = array() ) {
 		if ( ! get_option( 'minuteread_enable', 1 ) ) {
 			return '';
 		}
 
-		$post_id = get_the_ID();
+		$atts = shortcode_atts(
+			array( 'id' => 0 ),
+			$atts,
+			'minuteread_time'
+		);
+
+		$post_id = absint( $atts['id'] );
+		if ( ! $post_id ) {
+			$post_id = get_the_ID();
+		}
 		if ( ! $post_id ) {
 			return '';
 		}

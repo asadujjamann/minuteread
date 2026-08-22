@@ -25,11 +25,12 @@ class MinuteRead_Admin {
 		register_setting( 'minuteread_group', 'minuteread_label',    array( $this, 'sanitize_label' ) );
 		register_setting( 'minuteread_group', 'minuteread_format',   array( $this, 'sanitize_format' ) );
 		register_setting( 'minuteread_group', 'minuteread_position', array( $this, 'sanitize_position' ) );
+		register_setting( 'minuteread_group', 'minuteread_post_types', array( $this, 'sanitize_post_types' ) );
 	}
 
 	/**
 	 * Sanitize the enable/disable checkbox.
-	 * Unchecked checkbox sends nothing — treat as 0.
+	 * Unchecked checkbox sends nothing - treat as 0.
 	 *
 	 * @since  1.0.0
 	 * @param  mixed $value Raw input.
@@ -40,7 +41,7 @@ class MinuteRead_Admin {
 	}
 
 	/**
-	 * Sanitize words-per-minute (50–1000).
+	 * Sanitize words-per-minute (50-1000).
 	 *
 	 * @since  1.0.0
 	 * @param  mixed $value Raw input.
@@ -60,7 +61,7 @@ class MinuteRead_Admin {
 	}
 
 	/**
-	 * Sanitize the label field — plain text only, no HTML.
+	 * Sanitize the label field - plain text only, no HTML.
 	 *
 	 * @since  1.0.0
 	 * @param  mixed $value Raw input.
@@ -76,7 +77,7 @@ class MinuteRead_Admin {
 	 *
 	 * Rules:
 	 * - Must contain %d as the time placeholder.
-	 * - Only %d and %% (escaped percent) are allowed — no %s, %f, %x, etc.
+	 * - Only %d and %% (escaped percent) are allowed - no %s, %f, %x, etc.
 	 * - Maximum 30 characters.
 	 *
 	 * @since  1.0.0
@@ -91,7 +92,7 @@ class MinuteRead_Admin {
 		}
 
 		// After removing %% (escaped literal percent), count remaining % signs.
-		// All of them must be the start of %d — nothing else is permitted.
+		// All of them must be the start of %d - nothing else is permitted.
 		$stripped = str_replace( '%%', '', $value );
 		$total_percent = substr_count( $stripped, '%' );
 		$total_d       = substr_count( $stripped, '%d' );
@@ -100,7 +101,7 @@ class MinuteRead_Admin {
 			add_settings_error(
 				'minuteread_format',
 				'minuteread_format_specifier',
-				/* translators: %d is a literal PHP format specifier, not a number — keep it as-is in translation. */
+				/* translators: %d is a literal PHP format specifier, not a number - keep it as-is in translation. */
 				esc_html__( 'Only %d is allowed as a format specifier. Value reset to default.', 'minuteread' )
 			);
 			return '%d min';
@@ -110,7 +111,7 @@ class MinuteRead_Admin {
 			add_settings_error(
 				'minuteread_format',
 				'minuteread_format_invalid',
-				/* translators: %d is a literal PHP format specifier, not a number — keep it as-is in translation. */
+				/* translators: %d is a literal PHP format specifier, not a number - keep it as-is in translation. */
 				esc_html__( 'Format must contain %d as the time placeholder. Value reset to default.', 'minuteread' )
 			);
 			return '%d min';
@@ -124,7 +125,7 @@ class MinuteRead_Admin {
 	}
 
 	/**
-	 * Sanitize position — only 'before' or 'after' allowed.
+	 * Sanitize position - only 'before' or 'after' allowed.
 	 *
 	 * @since  1.0.0
 	 * @param  mixed $value Raw input.
@@ -133,6 +134,28 @@ class MinuteRead_Admin {
 	public function sanitize_position( $value ) {
 		return in_array( $value, array( 'before', 'after' ), true ) ? $value : 'before';
 	}
+
+
+	/**
+	 * Sanitize the post type selection.
+	 * Only public, registered post types are accepted.
+	 *
+	 * @since  1.1.0
+	 * @param  mixed $value Raw input.
+	 * @return array
+	 */
+	public function sanitize_post_types( $value ) {
+		if ( ! is_array( $value ) ) {
+			return array();
+		}
+
+		$allowed = array_keys( minuteread_get_selectable_post_types() );
+		$value   = array_map( 'sanitize_key', $value );
+
+		return array_values( array_intersect( $value, $allowed ) );
+	}
+
+
 
 	/**
 	 * Register the settings page under Settings menu.
@@ -205,8 +228,45 @@ class MinuteRead_Admin {
 								class="small-text"
 							>
 							<p class="description">
-								<?php esc_html_e( 'Average adult reads 200 words/min. Accepted range: 50–1000.', 'minuteread' ); ?>
+								<?php esc_html_e( 'Average adult reads 200 words/min. Accepted range: 50-1000.', 'minuteread' ); ?>
 							</p>
+						</td>
+					</tr>
+
+					<tr>
+						<th scope="row">
+							<?php esc_html_e( 'Show On', 'minuteread' ); ?>
+						</th>
+						<td>
+							<fieldset>
+								<legend class="screen-reader-text">
+									<span><?php esc_html_e( 'Show On', 'minuteread' ); ?></span>
+								</legend>
+								<?php
+								$selected = get_option( 'minuteread_post_types', array( 'post' ) );
+								if ( ! is_array( $selected ) ) {
+									$selected = array( 'post' );
+								}
+
+								foreach ( minuteread_get_selectable_post_types() as $type ) :
+									?>
+									<label style="display:block;margin-bottom:4px;">
+										<input
+											type="checkbox"
+											name="minuteread_post_types[]"
+											value="<?php echo esc_attr( $type->name ); ?>"
+											<?php checked( in_array( $type->name, $selected, true ) ); ?>
+										>
+										<?php echo esc_html( $type->labels->singular_name ); ?>
+										<code><?php echo esc_html( $type->name ); ?></code>
+									</label>
+									<?php
+								endforeach;
+								?>
+								<p class="description">
+									<?php esc_html_e( 'Reading time is inserted automatically on the selected post types. The shortcode works everywhere regardless.', 'minuteread' ); ?>
+								</p>
+							</fieldset>
 						</td>
 					</tr>
 
@@ -248,7 +308,7 @@ class MinuteRead_Admin {
 							>
 							<p class="description">
 								<?php
-									/* translators: %d is a literal format token shown to the user as-is — do not translate %d. */
+									/* translators: %d is a literal format token shown to the user as-is - do not translate %d. */
 									esc_html_e( 'Use %d as a placeholder for the reading time number. Leave empty for default.', 'minuteread' );
 								?>
 								<br>

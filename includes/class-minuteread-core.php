@@ -9,6 +9,56 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class MinuteRead_Core {
 
+
+
+	/**
+	 * Count words in a Unicode-aware way.
+	 *
+	 * str_word_count() is not multibyte safe: on text that mixes a non-Latin
+	 * script with a few Latin words it counts only the Latin ones, which made
+	 * long Bengali/Arabic posts report "1 min". Scripts that separate words
+	 * with spaces are counted by token; CJK scripts, which do not use spaces,
+	 * are counted by character and converted at a separate rate.
+	 *
+	 * @since  1.1.0
+	 * @param  string $text Plain text, tags and shortcodes already removed.
+	 * @return int    Word count (never negative).
+	 */
+	protected static function count_words( $text ) {
+
+		// Non-breaking spaces behave as separators.
+		$text = preg_replace( '/\x{00A0}/u', ' ', $text );
+
+		/*
+		 * Chinese ideographs and Japanese kana only. Korean Hangul is left out
+		 * on purpose: Korean separates words with spaces, so it counts correctly
+		 * as a normal token-based script.
+		 */
+		$cjk_pattern = '/[\x{3040}-\x{30FF}\x{3400}-\x{4DBF}\x{4E00}-\x{9FFF}\x{F900}-\x{FAFF}]/u';
+
+		$cjk_count = (int) preg_match_all( $cjk_pattern, $text );
+
+		if ( $cjk_count > 0 ) {
+			$text = preg_replace( $cjk_pattern, ' ', $text );
+		}
+
+		$tokens = preg_split( '/[\s\p{Z}]+/u', (string) $text, -1, PREG_SPLIT_NO_EMPTY );
+		$words  = is_array( $tokens ) ? count( $tokens ) : 0;
+
+		/*
+		 * CJK is read at roughly 500 characters per minute against 200 words
+		 * per minute for spaced scripts, so 2.5 characters count as one word.
+		 */
+		if ( $cjk_count > 0 ) {
+			$words += (int) ceil( $cjk_count / 2.5 );
+		}
+
+		return max( 0, $words );
+	}
+
+
+
+
 	/**
 	 * Calculate reading time for given content.
 	 *
@@ -24,16 +74,14 @@ class MinuteRead_Core {
 		// Remove HTML tags.
 		$clean = wp_strip_all_tags( $content );
 
-		// Default word count (works for Latin scripts).
-		$word_count = str_word_count( $clean );
 
-		// Fallback for non-Latin languages (Bangla, Arabic, CJK etc.).
-		if ( 0 === $word_count ) {
-			$word_count = count( preg_split( '/[\s\p{Z}]+/u', $clean, -1, PREG_SPLIT_NO_EMPTY ) );
-		}
+		// Unicode-aware word count (see count_words()).
+		$word_count = self::count_words( $clean );
+
 
 		// Allow developers to modify word count.
-		$word_count = apply_filters( 'minuteread_word_count', $word_count, $content );
+		// absint() guards against a filter callback returning a negative or non-numeric value.
+		$word_count = max( 1, absint( apply_filters( 'minuteread_word_count', $word_count, $content ) ) );
 
 		// Get WPM from settings.
 		$wpm = absint( get_option( 'minuteread_wpm', 200 ) );
@@ -48,6 +96,7 @@ class MinuteRead_Core {
 		$reading_time = max( 1, $reading_time );
 
 		// Allow modification of final time.
-		return apply_filters( 'minuteread_reading_time_output', $reading_time, $word_count );
+		// absint() + max(1,...) guards against a filter callback returning a negative or non-numeric value.
+		return max( 1, absint( apply_filters( 'minuteread_reading_time_output', $reading_time, $word_count ) ) );
 	}
 }
